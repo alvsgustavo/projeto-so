@@ -89,3 +89,13 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// MODS
+
+sys_getpriority(void)
+{
+  int &pid;
+
+  argint(0, &pid);
+
+}

@@ -532,3 +532,24 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+
+
+//MODIFIED
+
+int getpriority(int pid){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  release(&ptable.lock);
+  return p->priority;
+}
