@@ -589,3 +589,20 @@ int getusage(int pid){
   release(&ptable.lock);
   return p->usage;
 }
+
+int getsyscount(int pid, int syscallNum){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  release(&ptable.lock);
+  return p->syscalls[syscallNum];
+}

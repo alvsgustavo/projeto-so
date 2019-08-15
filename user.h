@@ -27,6 +27,7 @@ int uptime(void);
 int getpriority(int pid);
 int setpriority(int pid, int prio);
 int getusage(int pid);
+int trace(int pid, int sysNum);
 
 // ulib.c
 int stat(const char*, struct stat*);

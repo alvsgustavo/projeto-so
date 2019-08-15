@@ -121,3 +121,18 @@ int sys_getusage(void)
     return -1;
   return getusage(pid);
 }
+
+int sys_trace(void){
+
+  int pid;
+  int sysNum;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+
+  if (argint(1, &sysNum) > 25)
+    return -1;
+  
+  return getsyscount(pid, sysNum);
+
+}

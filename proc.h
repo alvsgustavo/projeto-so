@@ -53,6 +53,7 @@ struct proc {
   //MODIFIED
   int priority;
   int usage;
+  int syscalls[30];
 };
 
 // Process memory is laid out contiguously, low addresses first:

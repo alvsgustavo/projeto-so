@@ -19,5 +19,6 @@ main(int argc, char **argv)
   } else {
     printf(2, "The process with the pid(%d) has taken control over the cpu %d times.\n", pid, usage);
   }
+
   exit();
 }
