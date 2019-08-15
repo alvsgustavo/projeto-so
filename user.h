@@ -4,8 +4,6 @@ struct rtcdate;
 // system calls
 int fork(void);
 int exit(void) __attribute__((noreturn));
-int getpriority(int pid);
-int setpriority(int pid, int prio);
 int wait(void);
 int pipe(int*);
 int write(int, const void*, int);
@@ -25,6 +23,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+//MODIFIED
+int getpriority(int pid);
+int setpriority(int pid, int prio);
+int getusage(int pid);
 
 // ulib.c
 int stat(const char*, struct stat*);
