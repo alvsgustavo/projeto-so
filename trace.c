@@ -15,15 +15,8 @@ main(int argc, char **argv)
   }
   pid = atoi(argv[1]);
   sysNumber = atoi(argv[2]);
-  /**
-  printf(2, "mine usage: %d\nMy pid: %d\n", trace(getpid(), 24), getpid());
-  for(int i = 0; i < 10; i++){
-    getusage(1);
-  }
-  printf(2, "mine usage: %d\nMy pid: %d\n\n", trace(getpid(), 24), getpid());
   callCounts = trace(pid, sysNumber);
-  printf(2,"%d\n\n", callCounts);
-  **/
+  
   if (callCounts == -1){
     printf(2, "Something went wrong. Possibly process id invalid, syscall number invalid or system isn't tracking this syscall yet.\n");
   } else {

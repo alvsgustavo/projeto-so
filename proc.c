@@ -211,6 +211,11 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
+  // Cleaning new states added to the process.
+  np->priority = 0;
+  np->usage = 0;
+  memset(np->syscalls, 0, sizeof(np->syscalls));
+  //
 
   acquire(&ptable.lock);
 
