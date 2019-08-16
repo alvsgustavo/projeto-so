@@ -88,6 +88,11 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  // Cleaning new states added to the process.
+  p->priority = 0;
+  p->usage = 0;
+  memset(p->syscalls, 0, sizeof(p->syscalls));
+  //
 
   release(&ptable.lock);
 
@@ -211,15 +216,11 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
-  // Cleaning new states added to the process.
-  np->priority = 0;
-  np->usage = 0;
-  memset(np->syscalls, 0, sizeof(np->syscalls));
-  //
 
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->priority = curproc->priority;
 
   release(&ptable.lock);
 
@@ -573,8 +574,8 @@ int setpriority(int pid, int prio){
   return -1;
   
   found:
-  release(&ptable.lock);
   p->priority = prio;
+  release(&ptable.lock);
   return p->priority;
 }
 

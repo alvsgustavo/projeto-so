@@ -13,14 +13,16 @@ main(int argc, char **argv)
     printf(2, "usage: nice pid priority...\n");
     exit();
   }
+
   pid = atoi(argv[1]);
   prio = atoi(argv[2]);
   oldprio = getpriority(pid);
+  
   if (setpriority(pid, prio) == prio){
-    printf(2, "Priority of process with pid(%d) was: %d. New priority is set to: %d\n", pid, oldprio, prio);
+    printf(1, "Priority of process with pid(%d) was: %d. New priority is set to: %d\n", pid, oldprio, prio);
     exit();    
   } else {
-    printf(2, "Some error has occured. Pid(%d), oldprio(%d)\n", pid, oldprio);
+    printf(1, "Some error has occured. Pid(%d), oldprio(%d)\n", pid, oldprio);
     exit();
   }
 }

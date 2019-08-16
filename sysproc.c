@@ -95,8 +95,9 @@ sys_uptime(void)
 int sys_getpriority(void)
 {
   int pid;
+  argint(0, &pid);
 
-  if(argint(0, &pid) < 0)
+  if(pid < 0)
     return -1;
   return getpriority(pid);
 }
