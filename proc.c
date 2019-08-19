@@ -65,6 +65,14 @@ myproc(void) {
   return p;
 }
 
+//NEW FUNCTIONS TO DEAL WITH ADDITIONAL TRACKING TO PROCESS.
+
+void clearTracking(struct proc* p){
+  p->priority = 0;
+  p->usage = 0;
+  memset(p->syscalls, 0, sizeof(p->syscalls));
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -88,6 +96,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  clearTracking(p);
 
   release(&ptable.lock);
 
@@ -211,11 +220,6 @@ fork(void)
   safestrcpy(np->name, curproc->name, sizeof(curproc->name));
 
   pid = np->pid;
-  // Cleaning new states added to the process.
-  np->priority = 0;
-  np->usage = 0;
-  memset(np->syscalls, 0, sizeof(np->syscalls));
-  //
 
   acquire(&ptable.lock);
 
@@ -610,4 +614,33 @@ int getsyscount(int pid, int syscallNum){
   found:
   release(&ptable.lock);
   return p->syscalls[syscallNum];
+}
+
+void ps(void) {
+  struct proc *p;
+  char *state;
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [EMBRYO]    "embryo",
+  [SLEEPING]  "sleep",
+  [RUNNABLE]  "runnable",
+  [RUNNING]   "running",
+  [ZOMBIE]    "zombie"
+  };
+
+  cprintf("Current processes:\n");
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    if (p->pid == 1)
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d\n", p->pid, state, p->name, p->priority);
+    else
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d\n", p->pid, state, p->name, p->priority, p->parent->pid);
+  }
+  release(&ptable.lock);
 }

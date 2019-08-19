@@ -184,6 +184,8 @@ UPROGS=\
 	_nice\
 	_getusage\
 	_trace\
+	_ps\
+	_test\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

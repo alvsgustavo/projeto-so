@@ -113,6 +113,7 @@ int             getpriority(int);
 int             setpriority(int, int);
 int             getusage(int);
 int             getsyscount(int, int);
+void            ps(void);
 //
 struct cpu*     mycpu(void);
 struct proc*    myproc();

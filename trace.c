@@ -20,7 +20,7 @@ main(int argc, char **argv)
   if (callCounts == -1){
     printf(2, "Something went wrong. Possibly process id invalid, syscall number invalid or system isn't tracking this syscall yet.\n");
   } else {
-    printf(2, "The process with the pid(%d) has made %d syscalls of type(%d).\n", pid, callCounts, sysNumber);
+    printf(1, "The process with the pid(%d) has made %d syscalls of type(%d).\n", pid, callCounts, sysNumber);
   }
 
   exit();

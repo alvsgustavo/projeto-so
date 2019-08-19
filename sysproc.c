@@ -136,3 +136,9 @@ int sys_trace(void){
   return getsyscount(pid, sysNum);
 
 }
+
+int sys_ps(void)
+{
+  ps();
+  return 0;
+}

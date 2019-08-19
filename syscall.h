@@ -25,3 +25,4 @@
 #define SYS_setpriority  23
 #define SYS_getusage  24
 #define SYS_trace  25
+#define SYS_ps  26

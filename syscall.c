@@ -113,6 +113,7 @@ extern int sys_uptime(void);
 extern int sys_getpriority(void);
 extern int sys_setpriority(void);
 extern int sys_getusage(void);
+extern int sys_ps(void);
 extern int sys_trace(void);
 
 static int (*syscalls[])(void) = {
@@ -140,7 +141,8 @@ static int (*syscalls[])(void) = {
 [SYS_getpriority] sys_getpriority,
 [SYS_setpriority] sys_setpriority,
 [SYS_getusage] sys_getusage,
-[SYS_trace] sys_trace
+[SYS_trace] sys_trace,
+[SYS_ps] sys_ps
 };
 
 void

@@ -28,6 +28,7 @@ int getpriority(int pid);
 int setpriority(int pid, int prio);
 int getusage(int pid);
 int trace(int pid, int sysNum);
+int ps(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
