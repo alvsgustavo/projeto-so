@@ -224,6 +224,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->priority = curproc->priority;
 
   release(&ptable.lock);
 
@@ -577,8 +578,8 @@ int setpriority(int pid, int prio){
   return -1;
   
   found:
-  release(&ptable.lock);
   p->priority = prio;
+  release(&ptable.lock);
   return p->priority;
 }
 
