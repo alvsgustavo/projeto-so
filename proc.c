@@ -65,6 +65,14 @@ myproc(void) {
   return p;
 }
 
+//NEW FUNCTIONS TO DEAL WITH ADDITIONAL TRACKING TO PROCESS.
+
+void clearTracking(struct proc* p){
+  p->priority = 0;
+  p->usage = 0;
+  memset(p->syscalls, 0, sizeof(p->syscalls));
+}
+
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
 // If found, change state to EMBRYO and initialize
@@ -88,6 +96,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  clearTracking(p);
 
   release(&ptable.lock);
 
@@ -215,6 +224,7 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+  np->priority = curproc->priority;
 
   release(&ptable.lock);
 
@@ -342,6 +352,7 @@ scheduler(void)
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+      p->usage++;
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -531,4 +542,106 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+
+
+//MODIFIED
+
+int getpriority(int pid){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  release(&ptable.lock);
+  return p->priority;
+}
+
+int setpriority(int pid, int prio){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  p->priority = prio;
+  release(&ptable.lock);
+  return p->priority;
+}
+
+int getusage(int pid){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  release(&ptable.lock);
+  return p->usage;
+}
+
+int getsyscount(int pid, int syscallNum){
+  struct proc *p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid == pid)
+      goto found;
+  }
+
+  release(&ptable.lock);
+  return -1;
+  
+  found:
+  release(&ptable.lock);
+  return p->syscalls[syscallNum];
+}
+
+void ps(void) {
+  struct proc *p;
+  char *state;
+  static char *states[] = {
+  [UNUSED]    "unused",
+  [EMBRYO]    "embryo",
+  [SLEEPING]  "sleep",
+  [RUNNABLE]  "runnable",
+  [RUNNING]   "running",
+  [ZOMBIE]    "zombie"
+  };
+
+  cprintf("Current processes:\n");
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == UNUSED)
+      continue;
+    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+      state = states[p->state];
+    else
+      state = "???";
+    if (p->pid == 1)
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d\n", p->pid, state, p->name, p->priority);
+    else
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d\n", p->pid, state, p->name, p->priority, p->parent->pid);
+  }
+  release(&ptable.lock);
 }

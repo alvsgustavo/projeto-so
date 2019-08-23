@@ -89,3 +89,57 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// MODS
+
+int sys_getpriority(void)
+{
+  int pid;
+  argint(0, &pid);
+
+  if(pid < 0)
+    return -1;
+  return getpriority(pid);
+}
+
+int sys_setpriority(void)
+{
+  int pid;
+  int prio;
+
+  if(argint(0, &pid) < 0)
+    return -1;
+  if(argint(1, &prio) < 0)
+    return -1;
+  return setpriority(pid, prio);
+}
+
+int sys_getusage(void)
+{
+  int pid;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+  return getusage(pid);
+}
+
+int sys_trace(void){
+
+  int pid;
+  int sysNum;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+
+  if (argint(1, &sysNum) > 25)
+    return -1;
+  
+  return getsyscount(pid, sysNum);
+
+}
+
+int sys_ps(void)
+{
+  ps();
+  return 0;
+}
