@@ -68,6 +68,11 @@ struct Command {
   void add_arg(const std::string& arg);
 
   /**
+   * Pops the first arg of the arg list of the command.
+   */
+  void pop_first();
+
+  /**
    * Pushes an io redirection.
    */
   void add_io(const IOFile& io);
