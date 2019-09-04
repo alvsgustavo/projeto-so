@@ -13,17 +13,28 @@
 using namespace xeu_utils;
 using namespace std;
 
+struct thread_argv {
+  pid_t pid;
+  Command command;
+};
+
+pthread_mutex_t lock;
+
 pid_t fork_and_exec(const Command &c) {
   pid_t pid = fork();
 
   if (pid == -1)
     cout << "Failed to fork process" << endl;
   
-  else if (pid == 0 && execvp(c.filename(), c.argv()) == -1) {
-      cout << "Error whilst trying to execute " << c.filename() << endl;
-  }
+  else if (pid == 0 && execvp(c.filename(), c.argv()) == -1)
+    cout << "Error whilst trying to execute " << c.filename() << endl;
 
   return pid;
+}
+
+void *pthread_fork_and_exec (void* args) {
+  struct thread_argv *argv = (struct thread_argv*) args;
+  argv->pid = fork_and_exec(argv->command);
 }
 
 void run(Command &c) {
@@ -36,7 +47,17 @@ void run(Command &c) {
 
 
 void run_bg(Command &c) {
+  pthread_t thread_id;
+  struct thread_argv args;
+  c.pop_first();
+  args.command = c;
+
+  if (pthread_create(&thread_id, NULL, *pthread_fork_and_exec, &args) == 0)
+    cout << "[+] " << args.pid << endl;
   
+  else
+    cout << "Failed to execute " << c.filename() << " on the background." << endl;
+    
 }
 
 void parse_command(Command &c) {
