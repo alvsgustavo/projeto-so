@@ -52,8 +52,10 @@ void run_bg(Command &c) {
   c.pop_first();
   args.command = c;
 
-  if (pthread_create(&thread_id, NULL, *pthread_fork_and_exec, &args) == 0)
+  if (pthread_create(&thread_id, NULL, *pthread_fork_and_exec, &args) == 0) {
+    pthread_join(thread_id, NULL);
     cout << "[+] " << args.pid << endl;
+  }
   
   else
     cout << "Failed to execute " << c.filename() << " on the background." << endl;
