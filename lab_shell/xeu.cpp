@@ -1,9 +1,8 @@
 #include "xeu_utils/StreamParser.h"
 #include "unistd.h"
-#include "pwd.h"
 #include "sys/wait.h"
-#include "pthread.h"
 #include "linux/limits.h"
+#include "pthread.h"
 
 #include <iostream>
 #include <vector>
@@ -13,12 +12,19 @@
 using namespace xeu_utils;
 using namespace std;
 
+struct bg_process {
+  pid_t pid;
+  string status;
+};
+
+vector<bg_process> bg_processes;
+bool is_xjobs_thread_active;
+pthread_mutex_t lock;
+
 struct thread_argv {
   pid_t pid;
   Command command;
 };
-
-pthread_mutex_t lock;
 
 pid_t fork_and_exec(const Command &c) {
   pid_t pid = fork();
@@ -28,38 +34,91 @@ pid_t fork_and_exec(const Command &c) {
   
   else if (pid == 0 && execvp(c.filename(), c.argv()) == -1)
     cout << "Error whilst trying to execute " << c.filename() << endl;
-
+  
   return pid;
 }
 
-void *pthread_fork_and_exec (void* args) {
-  struct thread_argv *argv = (struct thread_argv*) args;
-  argv->pid = fork_and_exec(argv->command);
+void print_xjobs() {
+  if (bg_processes.size() == 0) {
+    cout << "There are no background jobs." << endl;
+  
+  } else {
+    pthread_mutex_lock(&lock);
+    auto it = bg_processes.begin();
+    while (it != bg_processes.end()) {
+      cout << it->pid << " - " << it->status << endl;
+      it->status == "dead"? it = bg_processes.erase(it) : it++;
+    }
+    if (bg_processes.size() == 0) {
+      is_xjobs_thread_active = false;
+      pthread_mutex_unlock(&lock);
+      pthread_mutex_destroy(&lock);
+    
+    } else
+      pthread_mutex_unlock(&lock);
+  }
 }
 
-void run(Command &c) {
+void *xjobs(void* args) {
+  while (is_xjobs_thread_active) {
+    pthread_mutex_lock(&lock);
+    if (bg_processes.size() == 0) {
+      is_xjobs_thread_active = false;
+    
+    } else {
+      for (auto job = bg_processes.begin(); job != bg_processes.end(); job++) {
+        bool is_dead;
+
+        if (job->status == "running" && waitpid(job->pid, NULL, WNOHANG) > 0) {
+          is_dead = true;
+          cout << "[-] " << job->pid << " has finished." << endl;
+        }
+        if (is_dead) {
+          job->status = "dead";
+          is_dead = false;
+        }
+      }
+    }
+    pthread_mutex_unlock(&lock);
+  }
+}
+
+void run_bg(Command& c) {
+  c.pop_first();
+  pid_t pid = fork_and_exec(c);
+  int status;
+
+  if (pid > 0 & is_xjobs_thread_active) {
+    bg_process job;
+    job.pid = pid;
+    job.status = "running";
+    pthread_mutex_lock(&lock);
+    bg_processes.push_back(job);
+    pthread_mutex_unlock(&lock);
+    cout << "[+] " << job.pid << ": " << c.name() << endl;
+  
+  } else if (pid > 0) {
+    pthread_t thread_id;
+    bg_process job;
+
+    pthread_create(&thread_id, NULL, *xjobs, NULL);
+    is_xjobs_thread_active = true;
+    job.pid = pid;
+    job.status = "running";
+    pthread_mutex_init(&lock, NULL);
+    pthread_mutex_lock(&lock);
+    bg_processes.push_back(job);
+    pthread_mutex_unlock(&lock);
+    cout << "[+] " << job.pid << ": " << c.name() << endl;
+  }
+}
+
+void run(Command& c) {
   pid_t pid = fork_and_exec(c);
   int status;
 
   if (pid > 0)
     waitpid(pid, &status, 0);
-}
-
-
-void run_bg(Command &c) {
-  pthread_t thread_id;
-  struct thread_argv args;
-  c.pop_first();
-  args.command = c;
-
-  if (pthread_create(&thread_id, NULL, *pthread_fork_and_exec, &args) == 0) {
-    pthread_join(thread_id, NULL);
-    cout << "[+] " << args.pid << endl;
-  }
-  
-  else
-    cout << "Failed to execute " << c.filename() << " on the background." << endl;
-    
 }
 
 void parse_command(Command &c) {
@@ -71,14 +130,21 @@ void parse_command(Command &c) {
   else if (command == "exit")
     exit(EXIT_SUCCESS);
 
-  else if (command == "bg")
+  else if (command == "bg" && c.args().size() > 1)
     run_bg(c);
+
+  else if (command == "bg")
+    cout << "use: bg [PROGRAMME]..." << endl;
+
+  else if (command == "xjobs")
+    print_xjobs();
 
   else
     run(c);
 }
 
 void print_prompt() {
+
   char path[PATH_MAX];
   getcwd(path, sizeof(path));
   cout << path << endl << "$ ";
