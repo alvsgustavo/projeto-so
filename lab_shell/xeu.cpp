@@ -1,4 +1,8 @@
 #include "xeu_utils/StreamParser.h"
+#include "unistd.h"
+#include "sys/wait.h"
+#include "linux/limits.h"
+#include "pthread.h"
 
 #include <iostream>
 #include <vector>
@@ -8,94 +12,153 @@
 using namespace xeu_utils;
 using namespace std;
 
-// This function is just to help you learn the useful methods from Command
-void io_explanation(const Command& command) {
-  // Let's use this input as example: (ps aux >out >o2 <in 2>er >ou)
-  // we would print "$       io(): [0] >out [1] >o2 [2] <in [3] 2>er [4] >ou"
-  cout << "$       io():";
-  for (size_t i = 0; i < command.io().size(); i++) {
-    IOFile io = command.io()[i];
-    cout << " [" << i << "] " << io.repr();
-    // Other methods - if we had 2>file, then:
-    // io.fd() == 2
-    // io.is_input() == false ('>' is output)
-    // io.is_output() == true
-    // io.path() == "file"
+struct bg_process {
+  pid_t pid;
+  string status;
+};
+
+vector<bg_process> bg_processes;
+bool is_xjobs_thread_active;
+pthread_mutex_t lock;
+
+struct thread_argv {
+  pid_t pid;
+  Command command;
+};
+
+pid_t fork_and_exec(const Command &c) {
+  pid_t pid = fork();
+
+  if (pid == -1)
+    cout << "Failed to fork process" << endl;
+  
+  else if (pid == 0 && execvp(c.filename(), c.argv()) == -1)
+    cout << "Error whilst trying to execute " << c.filename() << endl;
+  
+  return pid;
+}
+
+void print_xjobs() {
+  if (bg_processes.size() == 0) {
+    cout << "There are no background jobs." << endl;
+  
+  } else {
+    pthread_mutex_lock(&lock);
+    auto it = bg_processes.begin();
+    while (it != bg_processes.end()) {
+      cout << it->pid << " - " << it->status << endl;
+      it->status == "dead"? it = bg_processes.erase(it) : it++;
+    }
+    if (bg_processes.size() == 0) {
+      is_xjobs_thread_active = false;
+      pthread_mutex_unlock(&lock);
+      pthread_mutex_destroy(&lock);
+    
+    } else
+      pthread_mutex_unlock(&lock);
   }
 }
 
-// This function is just to help you learn the useful methods from Command
-void command_explanation(const Command& command) {
+void *xjobs(void* args) {
+  while (is_xjobs_thread_active) {
+    pthread_mutex_lock(&lock);
+    if (bg_processes.size() == 0) {
+      is_xjobs_thread_active = false;
+    
+    } else {
+      for (auto job = bg_processes.begin(); job != bg_processes.end(); job++) {
+        bool is_dead;
 
-  /* Methods that return strings (useful for debugging & maybe other stuff) */
-
-  // This prints the command in a format that can be run by our xeu. If you
-  // run the printed command, you will get the exact same Command
-  {
-    // Note: command.repr(false) doesn't show io redirection (i.e. <in >out)
-    cout << "$     repr(): " << command.repr() << endl;
-    cout << "$    repr(0): " << command.repr(false) << endl;
-    // cout << "$   (string): " << string(command) << endl; // does the same
-    // cout << "$ operator<<: " << command << endl; // does the same
-  }
-
-  // This is just args()[0] (e.g. in (ps aux), name() is "ps")
-  {
-    cout << "$     name(): " << command.name() << endl;
-  }
-
-  // Notice that args[0] is the command/filename
-  {
-    cout << "$     args():";
-    for (int i = 0; i < command.args().size(); i++) {
-      cout << " [" << i << "] " << command.args()[i];
+        if (job->status == "running" && waitpid(job->pid, NULL, WNOHANG) > 0) {
+          is_dead = true;
+          cout << "[-] " << job->pid << " has finished." << endl;
+        }
+        if (is_dead) {
+          job->status = "dead";
+          is_dead = false;
+        }
+      }
     }
-    cout << endl;
+    pthread_mutex_unlock(&lock);
   }
-
-  /* Methods that return C-string (useful in exec* syscalls) */
-
-  // this is just the argv()[0] (same as name(), but in C-string)
-  {
-    printf("$ filename(): %s\n", command.filename());
-  }
-
-  // This is similar to args, but in the format required by exec* syscalls
-  // After the last arg, there is always a NULL pointer (as required by exec*)
-  {
-    printf("$     argv():");
-    for (int i = 0; command.argv()[i]; i++) {
-      printf(" [%d] %s", i, command.argv()[i]);
-    }
-    printf("\n");
-  }
-
-  io_explanation(command);
 }
 
-// This function is just to help you learn the useful methods from Command
-void commands_explanation(const vector<Command>& commands) {
-  // Shows a representation (repr) of the command you input
-  // cout << "$ Command::repr(0): " << Command::repr(commands, false) << endl;
-  cout << "$ Command::repr(): " << Command::repr(commands) << endl << endl;
+void run_bg(Command& c) {
+  c.pop_first();
+  pid_t pid = fork_and_exec(c);
+  int status;
 
-  // Shows details of each command
-  for (int i = 0; i < commands.size(); i++) {
-    cout << "# Command " << i << endl;
-    command_explanation(commands[i]);
-    cout << endl;
+  if (pid > 0 & is_xjobs_thread_active) {
+    bg_process job;
+    job.pid = pid;
+    job.status = "running";
+    pthread_mutex_lock(&lock);
+    bg_processes.push_back(job);
+    pthread_mutex_unlock(&lock);
+    cout << "[+] " << job.pid << ": " << c.name() << endl;
+  
+  } else if (pid > 0) {
+    pthread_t thread_id;
+    bg_process job;
+
+    pthread_create(&thread_id, NULL, *xjobs, NULL);
+    is_xjobs_thread_active = true;
+    job.pid = pid;
+    job.status = "running";
+    pthread_mutex_init(&lock, NULL);
+    pthread_mutex_lock(&lock);
+    bg_processes.push_back(job);
+    pthread_mutex_unlock(&lock);
+    cout << "[+] " << job.pid << ": " << c.name() << endl;
   }
+}
+
+void run(Command& c) {
+  pid_t pid = fork_and_exec(c);
+  int status;
+
+  if (pid > 0)
+    waitpid(pid, &status, 0);
+}
+
+void parse_command(Command &c) {
+  string command = c.name();
+
+  if (command == "cd")
+    chdir(c.argv()[1]);
+
+  else if (command == "exit")
+    exit(EXIT_SUCCESS);
+
+  else if (command == "bg" && c.args().size() > 1)
+    run_bg(c);
+
+  else if (command == "bg")
+    cout << "use: bg [PROGRAMME]..." << endl;
+
+  else if (command == "xjobs")
+    print_xjobs();
+
+  else
+    run(c);
+}
+
+void print_prompt() {
+
+  char path[PATH_MAX];
+  getcwd(path, sizeof(path));
+  cout << path << endl << "$ ";
 }
 
 int main() {
-  // Waits for the user to input a command and parses it. Commands separated
-  // by pipe, "|", generate multiple commands. For example, try to input
-  //   ps aux | grep xeu
-  // commands.size() would be 2: (ps aux) and (grep xeu)
-  // If the user just presses ENTER without any command, commands.size() is 0
-  const vector<Command> commands = StreamParser().parse().commands();
+  for (;;) {
+    print_prompt();
+    vector<Command> commands = StreamParser().parse().commands();
 
-  commands_explanation(commands);
+    for (Command& c: commands)
+      parse_command(c);
+    cout << endl;
+  }
 
   return 0;
 }

@@ -91,6 +91,11 @@ void Command::add_arg(const std::string& arg) {
   args_.push_back(arg);
 }
 
+void Command::pop_first() {
+  args_.erase(args_.begin());
+  argv_.erase(argv_.begin());
+}
+
 void Command::add_io(const IOFile& io) {
   io_.push_back(io);
 }
