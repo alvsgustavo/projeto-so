@@ -15,6 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+long seed = 7;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -329,20 +330,9 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  c->proc = 0;
-  
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
 
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+void defaultSchedulling(struct cpu* c, struct proc* p) {
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
@@ -361,6 +351,53 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
+}
+
+int rand(int max) {
+  int a = 16807;
+  int m = 2147483647;
+  seed = (a * seed) % m;
+  int random = seed / m;
+  return random % max;
+}
+
+void probSchedulling(struct cpu* c, struct proc* p) {
+  int i = 0;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    i += 31 - p->priority;
+  }
+
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      c->proc = p;
+      switchuvm(p);
+      p->state = RUNNING;
+      p->usage++;
+
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
+}
+
+void
+scheduler(void)
+{
+  struct proc *p = 0;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    defaultSchedulling(c, p);
     release(&ptable.lock);
 
   }
@@ -578,7 +615,13 @@ int setpriority(int pid, int prio){
   return -1;
   
   found:
-  p->priority = prio;
+  if (prio > 31){
+    p->priority = 31;
+  } else if (prio < 0) {
+    p-> priority = 0;
+  } else {
+    p->priority = prio;
+  }
   release(&ptable.lock);
   return p->priority;
 }
@@ -639,9 +682,9 @@ void ps(void) {
     else
       state = "???";
     if (p->pid == 1)
-      cprintf("PID: %d - State: %s - Name: %s - Priority: %d\n", p->pid, state, p->name, p->priority);
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->usage);
     else
-      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d\n", p->pid, state, p->name, p->priority, p->parent->pid);
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->parent->pid, p->usage);
   }
   release(&ptable.lock);
 }
