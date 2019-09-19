@@ -1,17 +1,15 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-int seed = 7;
+int next = 7;
 
-int rand(int max) {
-  int a = 16807;
-  int m = 2147483647;
-  seed = (a * seed) % m;
-  int random = seed / max;
-  if (random < 0) {
-      random *= -1;
-  }
-  return random % max;
+int rand(int max)
+{
+    next = next * 1103515243 + 12345;
+    if (max != 0)
+      return (unsigned int)(next / 65536) % 32768 % max;
+    else
+      return (unsigned int)(next / 65536) % 32768;
 }
 
 int
@@ -42,9 +40,14 @@ main(int argc, char **argv)
 
   found:
   setpriority(myPid, prio);
-  i = 100;
+  i = 320;
   while (i) {
-      sleep(1);
+      /**
+      if (i % 100 == 0){
+        printf(1, "escalonado (%d): %d\n", myPid, getpriority(myPid));
+      }
+      **/
+      sleep(4);
       i --;
   }
   printf(1, "Terminei (%d): %d\n", myPid, getpriority(myPid));

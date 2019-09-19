@@ -15,7 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
-int seed = 7;
+unsigned long int next = 1;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -355,16 +355,15 @@ void defaultSchedulling(struct cpu* c, struct proc* p) {
 
 //PROB SCHEDULLING
 
-int rand(int max) {
-  int a = 16807;
-  int m = 2147483647;
-  seed = (a * seed) % m;
-  int random = seed / m;
-  if (random < 0) {
-      random *= -1;
-  }
-  return random % max;
+int rand2(int max)
+{
+    next = next * 1103515243 + 12345;
+    if (max != 0)
+      return (unsigned int)(next / 65536) % 32768 % max;
+    else
+      return (unsigned int)(next / 65536) % 32768;
 }
+
 
 void probSchedulling(struct cpu* c, struct proc* p) {
   int tickets = 0;
@@ -373,21 +372,24 @@ void probSchedulling(struct cpu* c, struct proc* p) {
       tickets += 31 - p->priority;
   }
   
-  int lotery = rand(tickets);
+  int lotery = rand2(tickets);
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == RUNNABLE){
       lotery -= 31 - p->priority;
-      if (lotery < 0){
-        break;
+      if (lotery <= 0){
+        goto found;
       }
     }
   }
 
   if (p->state != RUNNABLE){
     return;
+  } else {
+    goto found;
   }
 
+  found: 
   // Switch to chosen process.  It is the process's job
   // to release ptable.lock and then reacquire it
   // before jumping back to us.
