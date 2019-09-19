@@ -353,35 +353,49 @@ void defaultSchedulling(struct cpu* c, struct proc* p) {
     }
 }
 
+//PROB SCHEDULLING
+
 int rand(int max) {
   int a = 16807;
   int m = 2147483647;
   seed = (a * seed) % m;
   int random = seed / m;
+  if (random < 0) {
+      random *= -1;
+  }
   return random % max;
 }
 
 void probSchedulling(struct cpu* c, struct proc* p) {
-  int i = 0;
+  int tickets = 0;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    i += 31 - p->priority;
+    if(p->state == RUNNABLE)
+      tickets += 31 - p->priority;
+  }
+  int lotery = rand(tickets);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      lotery -= 31 - p->priority;
+      if (lotery < 0){
+        break;
+      }
+    }
   }
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      p->usage++;
+  // Switch to chosen process.  It is the process's job
+  // to release ptable.lock and then reacquire it
+  // before jumping back to us.
+  c->proc = p;
+  switchuvm(p);
+  p->state = RUNNING;
+  p->usage++;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+  swtch(&(c->scheduler), p->context);
+  switchkvm();
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
+  // Process is done running for now.
+  // It should have changed its p->state before coming back.
+  c->proc = 0;
 }
 
 void
