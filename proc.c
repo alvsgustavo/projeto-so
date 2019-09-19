@@ -15,7 +15,7 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
-long seed = 7;
+int seed = 7;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -69,7 +69,7 @@ myproc(void) {
 //NEW FUNCTIONS TO DEAL WITH ADDITIONAL TRACKING TO PROCESS.
 
 void clearTracking(struct proc* p){
-  p->priority = 0;
+  p->priority = 15;
   p->usage = 0;
   memset(p->syscalls, 0, sizeof(p->syscalls));
 }
@@ -372,7 +372,9 @@ void probSchedulling(struct cpu* c, struct proc* p) {
     if(p->state == RUNNABLE)
       tickets += 31 - p->priority;
   }
+  
   int lotery = rand(tickets);
+
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == RUNNABLE){
       lotery -= 31 - p->priority;
@@ -380,6 +382,10 @@ void probSchedulling(struct cpu* c, struct proc* p) {
         break;
       }
     }
+  }
+
+  if (p->state != RUNNABLE){
+    return;
   }
 
   // Switch to chosen process.  It is the process's job
@@ -411,7 +417,7 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    defaultSchedulling(c, p);
+    probSchedulling(c,p);
     release(&ptable.lock);
 
   }
