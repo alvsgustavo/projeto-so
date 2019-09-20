@@ -20,7 +20,7 @@ main(int argc, char **argv)
   int prio;
 
   if(argc < 2){
-    printf(2, "usage: mockProc pid...\n");
+    printf(2, "usage: mockProc num...\n");
     exit();
   }
   i = atoi(argv[1]);
@@ -33,22 +33,14 @@ main(int argc, char **argv)
           goto found;
       }
   }
-  while(wait() != -1){
-      sleep(10);
-  }
   exit();
 
   found:
   setpriority(myPid, prio);
-  i = 320;
-  while (i) {
-      /**
-      if (i % 100 == 0){
-        printf(1, "escalonado (%d): %d\n", myPid, getpriority(myPid));
-      }
-      **/
-      sleep(4);
-      i --;
+  i = 1000;
+  while (1) {
+      //sleep(1);
+      //i --;
   }
   printf(1, "Terminei (%d): %d\n", myPid, getpriority(myPid));
   exit();

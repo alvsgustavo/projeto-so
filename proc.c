@@ -71,6 +71,7 @@ myproc(void) {
 void clearTracking(struct proc* p){
   p->priority = 15;
   p->usage = 0;
+  p->noStarv = 15;
   memset(p->syscalls, 0, sizeof(p->syscalls));
 }
 
@@ -226,6 +227,7 @@ fork(void)
 
   np->state = RUNNABLE;
   np->priority = curproc->priority;
+  np->noStarv = np->priority;
 
   release(&ptable.lock);
 
@@ -406,6 +408,42 @@ void probSchedulling(struct cpu* c, struct proc* p) {
   c->proc = 0;
 }
 
+void detSchedulling(struct cpu* c, struct proc* p) {
+  int minPrio = 31;
+  struct proc *np;
+
+  for(np = ptable.proc; np < &ptable.proc[NPROC]; np++){
+    if(np->state == RUNNABLE){
+      if (np->noStarv < minPrio){
+        minPrio = np->noStarv;
+        p = np;
+      }
+    }
+  }
+
+  if (p->state != RUNNABLE){
+    return;
+  } else {
+    goto found;
+  }
+
+  found: 
+  // Switch to chosen process.  It is the process's job
+  // to release ptable.lock and then reacquire it
+  // before jumping back to us.
+  c->proc = p;
+  switchuvm(p);
+  p->state = RUNNING;
+  p->usage++;
+
+  swtch(&(c->scheduler), p->context);
+  switchkvm();
+
+  // Process is done running for now.
+  // It should have changed its p->state before coming back.
+  c->proc = 0;
+}
+
 void
 scheduler(void)
 {
@@ -432,6 +470,20 @@ scheduler(void)
 // be proc->intena and proc->ncli, but that would
 // break in the few places where a lock is held but
 // there's no process.
+
+void starvationAvoidance(int pid){
+  struct proc *p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state != RUNNABLE)
+      continue;
+    
+    if(p->pid == pid)
+      p->noStarv = p->priority;
+    else if(p->noStarv < -500)
+      p->noStarv -= - 1;
+  }
+}
+
 void
 sched(void)
 {
@@ -440,6 +492,9 @@ sched(void)
 
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
+  
+  starvationAvoidance(p->pid);
+
   if(mycpu()->ncli != 1)
     panic("sched locks");
   if(p->state == RUNNING)
@@ -706,7 +761,7 @@ void ps(void) {
     if (p->pid == 1)
       cprintf("PID: %d - State: %s - Name: %s - Priority: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->usage);
     else
-      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->parent->pid, p->usage);
+      cprintf("PID: %d - State: %s - Name: %s - Priority(noStarv): %d(%d) - PPID: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->noStarv, p->parent->pid, p->usage);
   }
   release(&ptable.lock);
 }
