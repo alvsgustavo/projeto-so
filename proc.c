@@ -16,6 +16,7 @@ static struct proc *initproc;
 
 int nextpid = 1;
 unsigned long int next = 1;
+int round = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -341,6 +342,7 @@ void defaultSchedulling(struct cpu* c, struct proc* p) {
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      round ++;
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
@@ -391,7 +393,8 @@ void probSchedulling(struct cpu* c, struct proc* p) {
     goto found;
   }
 
-  found: 
+  found:
+  round ++;
   // Switch to chosen process.  It is the process's job
   // to release ptable.lock and then reacquire it
   // before jumping back to us.
@@ -410,13 +413,26 @@ void probSchedulling(struct cpu* c, struct proc* p) {
 
 void starvationAvoidance(){
   struct proc *p;
+  round = 0;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(!(p->state == RUNNABLE || p->state == RUNNING))
+    if(!(p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING))
       continue;
-    if(p->state == RUNNING)
-      p->noStarv = p->priority;
-    else
-      p->noStarv -= 1;
+    if (p->noStarv > -2000000000){
+      switch (p->state)
+      {
+        case RUNNING:
+          p->noStarv = p->priority;
+          break;
+        
+        case SLEEPING:
+          p->noStarv -= 3;
+          break;
+      
+        default:
+          p->noStarv -= 1;
+          break;
+      }
+    }
   }
 }
 
@@ -446,7 +462,8 @@ void detSchedulling(struct cpu* c, struct proc* p) {
     goto found;
   }
 
-  found: 
+  found:
+  round ++;
   // Switch to chosen process.  It is the process's job
   // to release ptable.lock and then reacquire it
   // before jumping back to us.
@@ -477,7 +494,7 @@ scheduler(void)
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
     //CHOOSE SCHEDULLING IMPLEMENTATION. "det/prob/default + Schedulling(c, p);"
-    defaultSchedulling(c,p);
+    detSchedulling(c,p);
     release(&ptable.lock);
 
   }
@@ -515,7 +532,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
-  starvationAvoidance();
+  if (round > 3)
+    starvationAvoidance();
   myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
@@ -543,7 +561,7 @@ forkret(void)
 }
 
 // Atomically release lock and sleep on chan.
-// Reacquires lock when awakened.
+// Reacquires lock when awakened.es lock when awakened.
 void
 sleep(void *chan, struct spinlock *lk)
 {
@@ -567,6 +585,8 @@ sleep(void *chan, struct spinlock *lk)
   }
   // Go to sleep.
   p->chan = chan;
+  if (round > 3)
+    starvationAvoidance();
   p->state = SLEEPING;
 
   sched();

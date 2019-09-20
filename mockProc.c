@@ -1,7 +1,7 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
-int next = 7;
+int next = 10;
 
 int rand(int max)
 {
@@ -17,7 +17,7 @@ main(int argc, char **argv)
 {
   int i;
   int myPid;
-  int prio;
+  int prio = 31;
 
   if(argc < 2){
     printf(2, "usage: mockProc num...\n");
@@ -26,18 +26,22 @@ main(int argc, char **argv)
   i = atoi(argv[1]);
 
   for(; i>0; i--){
-      int lastPid = fork();
       prio = rand(31);
+      int lastPid = fork();
+      //prio = rand(31);
       if (!lastPid){
           myPid = getpid();
           goto found;
       }
   }
+  while (wait() != -1){
+    sleep(100);
+  }
   exit();
 
   found:
   setpriority(myPid, prio);
-  i = 350;
+  i = 1000;
   
   /* For deterministic.
   while (1) {
@@ -46,9 +50,8 @@ main(int argc, char **argv)
   */
 
   //Probabilistico
-  while (i > 0) {
-    sleep(1);
-    i--;
+  while (1) {
+    
   }
   printf(1, "Terminei (%d): %d\n", myPid, getpriority(myPid));
   exit();
