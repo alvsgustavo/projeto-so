@@ -37,10 +37,18 @@ main(int argc, char **argv)
 
   found:
   setpriority(myPid, prio);
-  i = 1000;
+  i = 350;
+  
+  /* For deterministic.
   while (1) {
-      //sleep(1);
-      //i --;
+
+  }
+  */
+
+  //Probabilistico
+  while (i > 0) {
+    sleep(1);
+    i--;
   }
   printf(1, "Terminei (%d): %d\n", myPid, getpriority(myPid));
   exit();

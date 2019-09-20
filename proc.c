@@ -408,15 +408,34 @@ void probSchedulling(struct cpu* c, struct proc* p) {
   c->proc = 0;
 }
 
+void starvationAvoidance(){
+  struct proc *p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(!(p->state == RUNNABLE || p->state == RUNNING))
+      continue;
+    if(p->state == RUNNING)
+      p->noStarv = p->priority;
+    else
+      p->noStarv -= 1;
+  }
+}
+
 void detSchedulling(struct cpu* c, struct proc* p) {
   int minPrio = 31;
-  struct proc *np;
+  //Search for min prio.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      if (p->noStarv < minPrio){
+        minPrio = p->noStarv;
+      }
+    }
+  }
 
-  for(np = ptable.proc; np < &ptable.proc[NPROC]; np++){
-    if(np->state == RUNNABLE){
-      if (np->noStarv < minPrio){
-        minPrio = np->noStarv;
-        p = np;
+  //Search for proc with min prio.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      if (p->noStarv == minPrio){
+        goto found;
       }
     }
   }
@@ -457,7 +476,8 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    probSchedulling(c,p);
+    //CHOOSE SCHEDULLING IMPLEMENTATION. "det/prob/default + Schedulling(c, p);"
+    defaultSchedulling(c,p);
     release(&ptable.lock);
 
   }
@@ -471,19 +491,6 @@ scheduler(void)
 // break in the few places where a lock is held but
 // there's no process.
 
-void starvationAvoidance(int pid){
-  struct proc *p;
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if(p->state != RUNNABLE)
-      continue;
-    
-    if(p->pid == pid)
-      p->noStarv = p->priority;
-    else if(p->noStarv < -500)
-      p->noStarv -= - 1;
-  }
-}
-
 void
 sched(void)
 {
@@ -492,9 +499,6 @@ sched(void)
 
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
-  
-  starvationAvoidance(p->pid);
-
   if(mycpu()->ncli != 1)
     panic("sched locks");
   if(p->state == RUNNING)
@@ -511,6 +515,7 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
+  starvationAvoidance();
   myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
@@ -699,6 +704,7 @@ int setpriority(int pid, int prio){
   } else {
     p->priority = prio;
   }
+  p->noStarv = p->priority;
   release(&ptable.lock);
   return p->priority;
 }
