@@ -15,6 +15,8 @@ struct {
 static struct proc *initproc;
 
 int nextpid = 1;
+unsigned long int next = 1;
+int round = 0;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -68,8 +70,9 @@ myproc(void) {
 //NEW FUNCTIONS TO DEAL WITH ADDITIONAL TRACKING TO PROCESS.
 
 void clearTracking(struct proc* p){
-  p->priority = 0;
+  p->priority = 15;
   p->usage = 0;
+  p->noStarv = 15;
   memset(p->syscalls, 0, sizeof(p->syscalls));
 }
 
@@ -225,6 +228,7 @@ fork(void)
 
   np->state = RUNNABLE;
   np->priority = curproc->priority;
+  np->noStarv = np->priority;
 
   release(&ptable.lock);
 
@@ -329,26 +333,16 @@ wait(void)
 //  - swtch to start running that process
 //  - eventually that process transfers control
 //      via swtch back to the scheduler.
-void
-scheduler(void)
-{
-  struct proc *p;
-  struct cpu *c = mycpu();
-  c->proc = 0;
-  
-  for(;;){
-    // Enable interrupts on this processor.
-    sti();
 
-    // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+void defaultSchedulling(struct cpu* c, struct proc* p) {
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
+      round ++;
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
@@ -361,6 +355,146 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       c->proc = 0;
     }
+}
+
+//PROB SCHEDULLING
+
+int rand2(int max)
+{
+    next = next * 1103515243 + 12345;
+    if (max != 0)
+      return (unsigned int)(next / 65536) % 32768 % max;
+    else
+      return (unsigned int)(next / 65536) % 32768;
+}
+
+
+void probSchedulling(struct cpu* c, struct proc* p) {
+  int tickets = 0;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE)
+      tickets += 31 - p->priority;
+  }
+  
+  int lotery = rand2(tickets);
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      lotery -= 31 - p->priority;
+      if (lotery <= 0){
+        goto found;
+      }
+    }
+  }
+
+  if (p->state != RUNNABLE){
+    return;
+  } else {
+    goto found;
+  }
+
+  found:
+  round ++;
+  // Switch to chosen process.  It is the process's job
+  // to release ptable.lock and then reacquire it
+  // before jumping back to us.
+  c->proc = p;
+  switchuvm(p);
+  p->state = RUNNING;
+  p->usage++;
+
+  swtch(&(c->scheduler), p->context);
+  switchkvm();
+
+  // Process is done running for now.
+  // It should have changed its p->state before coming back.
+  c->proc = 0;
+}
+
+void starvationAvoidance(){
+  struct proc *p;
+  round = 0;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(!(p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING))
+      continue;
+    if (p->noStarv > -2000000000){
+      switch (p->state)
+      {
+        case RUNNING:
+          p->noStarv = p->priority;
+          break;
+        
+        case SLEEPING:
+          p->noStarv -= 3;
+          break;
+      
+        default:
+          p->noStarv -= 1;
+          break;
+      }
+    }
+  }
+}
+
+void detSchedulling(struct cpu* c, struct proc* p) {
+  int minPrio = 31;
+  //Search for min prio.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      if (p->noStarv < minPrio){
+        minPrio = p->noStarv;
+      }
+    }
+  }
+
+  //Search for proc with min prio.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      if (p->noStarv == minPrio){
+        goto found;
+      }
+    }
+  }
+
+  if (p->state != RUNNABLE){
+    return;
+  } else {
+    goto found;
+  }
+
+  found:
+  round ++;
+  // Switch to chosen process.  It is the process's job
+  // to release ptable.lock and then reacquire it
+  // before jumping back to us.
+  c->proc = p;
+  switchuvm(p);
+  p->state = RUNNING;
+  p->usage++;
+
+  swtch(&(c->scheduler), p->context);
+  switchkvm();
+
+  // Process is done running for now.
+  // It should have changed its p->state before coming back.
+  c->proc = 0;
+}
+
+void
+scheduler(void)
+{
+  struct proc *p = 0;
+  struct cpu *c = mycpu();
+  c->proc = 0;
+  
+  for(;;){
+    // Enable interrupts on this processor.
+    sti();
+
+    // Loop over process table looking for process to run.
+    acquire(&ptable.lock);
+    //CHOOSE SCHEDULLING IMPLEMENTATION. "det/prob/default + Schedulling(c, p);"
+    detSchedulling(c,p);
     release(&ptable.lock);
 
   }
@@ -373,6 +507,7 @@ scheduler(void)
 // be proc->intena and proc->ncli, but that would
 // break in the few places where a lock is held but
 // there's no process.
+
 void
 sched(void)
 {
@@ -397,6 +532,8 @@ void
 yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
+  if (round > 3)
+    starvationAvoidance();
   myproc()->state = RUNNABLE;
   sched();
   release(&ptable.lock);
@@ -424,7 +561,7 @@ forkret(void)
 }
 
 // Atomically release lock and sleep on chan.
-// Reacquires lock when awakened.
+// Reacquires lock when awakened.es lock when awakened.
 void
 sleep(void *chan, struct spinlock *lk)
 {
@@ -448,6 +585,8 @@ sleep(void *chan, struct spinlock *lk)
   }
   // Go to sleep.
   p->chan = chan;
+  if (round > 3)
+    starvationAvoidance();
   p->state = SLEEPING;
 
   sched();
@@ -578,7 +717,14 @@ int setpriority(int pid, int prio){
   return -1;
   
   found:
-  p->priority = prio;
+  if (prio > 31){
+    p->priority = 31;
+  } else if (prio < 0) {
+    p-> priority = 0;
+  } else {
+    p->priority = prio;
+  }
+  p->noStarv = p->priority;
   release(&ptable.lock);
   return p->priority;
 }
@@ -639,9 +785,9 @@ void ps(void) {
     else
       state = "???";
     if (p->pid == 1)
-      cprintf("PID: %d - State: %s - Name: %s - Priority: %d\n", p->pid, state, p->name, p->priority);
+      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->usage);
     else
-      cprintf("PID: %d - State: %s - Name: %s - Priority: %d - PPID: %d\n", p->pid, state, p->name, p->priority, p->parent->pid);
+      cprintf("PID: %d - State: %s - Name: %s - Priority(noStarv): %d(%d) - PPID: %d - Usage: %d\n", p->pid, state, p->name, p->priority, p->noStarv, p->parent->pid, p->usage);
   }
   release(&ptable.lock);
 }

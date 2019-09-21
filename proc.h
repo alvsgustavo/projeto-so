@@ -52,6 +52,7 @@ struct proc {
 
   //MODIFIED
   int priority;
+  int noStarv; //Starvation avoidance priority. Aimed for deterministic scheduller.
   int usage;
   int syscalls[30];
 };

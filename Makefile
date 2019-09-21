@@ -186,6 +186,8 @@ UPROGS=\
 	_trace\
 	_ps\
 	_test\
+	_rand\
+	_mockProc\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)
