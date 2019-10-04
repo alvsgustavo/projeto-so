@@ -66,4 +66,11 @@ initcode.out
 kernel
 kernelmemfs
 mkfs
+
+#LAB_Shell
 .gdbinit
+.Rhistory
+.vscode
+*.pyc
+*.py~
+*.ffd
