@@ -6,7 +6,7 @@ npages=7
 clock=2
 
 
-alg=random # This is where you select the algorithm you want to test
+alg=second-chance # This is where you select the algorithm you want to test
     
 for nframes in 2 3 4 5 6 7
 do
