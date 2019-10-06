@@ -9,7 +9,7 @@ do
     mkdir -p output/$trace
     
     #for alg in fifo lru nru aging second-chance
-    for alg in random fifo second-chance nru aging #lru
+    for alg in random fifo second-chance nru aging lru
     do
         # numero de espaços nas memória
         for nframes in 4 8 16 32

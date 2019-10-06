@@ -10,16 +10,18 @@
 class LRU:
 
   def __init__(self):
-    pass
+    from collections import deque
+    self.deque = deque()
 
   def put(self, frameId):
-    pass
+    self.deque.appendleft(frameId)
 
   def evict(self):
-    pass
+    return self.deque.pop()
 
   def clock(self):
     pass
 
   def access(self, frameId, isWrite):
-    pass
+    self.deque.remove(frameId)
+    self.deque.appendleft(frameId)
