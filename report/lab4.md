@@ -1,6 +1,6 @@
 # Políticas de reposição de páginas
 
-!()[./mem-shell/lab_mem/page_replacement/python/output/trace.2.mem.plot.png]
+![](../mem-shell/lab_mem/page_replacement/python/output/trace.2.mem.plot.png)
 ### First in, first out (FIFO)
 
 A primeira política a ser testada é a FIFO, que funciona basicamente como uma fila. No seu funcionamento, cada vez que ocorre um page fault decorrente da página não estar alocada na memória física, o algoritmo busca a página e coloca ela enfileirada na memória. Quando a memória está cheia e ocorre um page fault, o algoritmo retira a página correspondente à cabeça da fila, abrindo espaço para o novo frame (que ficará então no fim da fila). Um problema inerente a esta política é que não há otimização para permanência das páginas mais usadas na memória física. No gráfico, podemos ver que é uma das políticas menos eficientes, sendo às vezes a pior das estudadas.
