@@ -23,4 +23,9 @@ A penúltima política testada se chama Not Recently Used. Ela assim como a LRU 
 
 ### Aging
 
-Por último, temos o algoritmo Aging, que é similar ao algoritmo LRU, porém leva em consideração uma quantidade especificada de intervalos, removendo a página que nestes intervalos de tempo foi menos utilizada. É um algoritmo que assim como o LRU é bastante eficiente.
+Por último, temos o algoritmo Aging, que é similar ao algoritmo LRU, porém leva em consideração uma quantidade especificada de intervalos, removendo a página que nestes intervalos de tempo foi menos utilizada. É um algoritmo que assim como o LRU é bastante eficiente. Por algum motivo, no primeiro gráfico o aging está funcionando diferente do esperado.
+
+Referências:
+
+ARPACI-DUSSEAU; ARPACI-DUSSEAU. Operating Systems: Three Easy Pieces. Disponível em: http://pages.cs.wisc.edu/~remzi/OSTEP/
+Page Replacemente Algorithms. Disponível em https://en.wikipedia.org/wiki/Page_replacement_algorithm
